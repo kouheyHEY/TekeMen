@@ -1,245 +1,313 @@
 /*
-* Asset from: https://kenney.nl/assets/pixel-platformer
-*/
-import ASSETS from '../assets.js';
-import ANIMATION from '../animation.js';
-import Player from '../gameObjects/Player.js';
-import Enemy from '../gameObjects/Enemy.js';
-import Coin from '../gameObjects/Coin.js';
-import Bomb from '../gameObjects/Bomb.js';
+ * Asset from: https://kenney.nl/assets/pixel-platformer
+ */
+import ASSETS from "../assets.js";
+import ANIMATION from "../animation.js";
+import Player from "../gameObjects/Player.js";
+import Enemy from "../gameObjects/Enemy.js";
+import Coin from "../gameObjects/Coin.js";
+import Bomb from "../gameObjects/Bomb.js";
+import {
+    GAME_CONST_MAP,
+    MAP_CONST_MAP,
+    COMMON_CONST_MAP,
+    KEY_NAME_MAP,
+} from "../Const.js";
+import InputManager from "../InputManager.js";
 
-export class Game extends Phaser.Scene
-{
-    constructor()
-    {
-        super('Game');
+export class Game extends Phaser.Scene {
+    constructor() {
+        super("Game");
     }
 
-    create ()
-    {
+    create() {
+        // 入力管理クラスの初期化
+        this.inputManager = new InputManager(this);
+
+        // 背景色設定
+        this.cameras.main.setBackgroundColor(0x00ff00);
+
+        // UIカメラの作成
+        this.uiCamera = this.cameras.add(
+            0,
+            0,
+            COMMON_CONST_MAP.SCREEN_WIDTH,
+            COMMON_CONST_MAP.SCREEN_HEIGHT
+        );
+        // UIレイヤーの設定
+        this.uiLayer = this.add.layer();
+
+        // 各種初期化処理
         this.initVariables();
         this.initGameUi();
         this.initAnimations();
         this.initInput();
         this.initGroups();
-        this.initMap();
         this.initPlayer();
+        this.initMap();
         this.initPhysics();
     }
 
-    update (time, delta)
-    {
+    update(time, delta) {
+        // スペースキー押下時
+        if (this.inputManager.keys[KEY_NAME_MAP.SPACE].isDown) {
+            // ゲーム開始処理
+            this.startGame();
+        }
+        // ゲーム開始前は更新処理を行わない
         if (!this.gameStarted) return;
 
+        // プレイヤーの更新
         this.player.update(delta);
-        this.addEnemy();
+        console.log(this.player.x, this.player.y);
+
+        // 入力処理
+        if (this.inputManager.cursors.left.isDown) {
+            // 左キーが押されている
+            this.player.isMoving = true;
+            this.player.moveLeft = true;
+            this.player.moveRight = false;
+            this.player.moveUp = false;
+            this.player.moveDown = false;
+        } else if (this.inputManager.cursors.right.isDown) {
+            // 右キーが押されている
+            this.player.isMoving = true;
+            this.player.moveLeft = false;
+            this.player.moveRight = true;
+            this.player.moveUp = false;
+            this.player.moveDown = false;
+        } else if (this.inputManager.cursors.up.isDown) {
+            // 上キーが押されている
+            this.player.isMoving = true;
+            this.player.moveLeft = false;
+            this.player.moveRight = false;
+            this.player.moveUp = true;
+            this.player.moveDown = false;
+        } else if (this.inputManager.cursors.down.isDown) {
+            // 下キーが押されている
+            this.player.isMoving = true;
+            this.player.moveLeft = false;
+            this.player.moveRight = false;
+            this.player.moveUp = false;
+            this.player.moveDown = true;
+        } else {
+            // キーが押されていない
+            this.player.isMoving = false;
+        }
     }
 
-    initVariables ()
-    {
+    /**
+     * 初期変数の設定
+     */
+    initVariables() {
         this.gameStarted = false;
         this.score = 0;
         this.centreX = this.scale.width * 0.5;
         this.centreY = this.scale.height * 0.5;
 
-        this.spawnCounterEnemy = 0;
-        this.spawnRateEnemy = 3 * 60;
-
-        this.tileIds = {
-            player: 96,
-            enemy: 95,
-            coin: 94,
-            bomb: 106,
-            walls: [ 45, 46, 47, 48, 53, 54, 55, 56, 57, 58, 59, 60, 65, 66, 67, 68, 69, 70, 71, 72, 77, 78, 79, 80, 81, 82, 83, 84 ]
-        }
-
         this.playerStart = { x: 0, y: 0 };
-        this.enemyStart = { x: 0, y: 0 };
-
-        // used to generate random background image
-        this.tiles = [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 44 ];
-        this.tileSize = 32; // width and height of a tile in pixels
-        this.halfTileSize = this.tileSize * 0.5; // width and height of a tile in pixels
-
-        this.mapHeight = 15; // height of the tile map (in tiles)
-        this.mapWidth = 21; // width of the tile map (in tiles)
-        this.mapX = this.centreX - (this.mapWidth * this.tileSize * 0.5); // x position of the top-left corner of the tile map
-        this.mapY = this.centreY - (this.mapHeight * this.tileSize * 0.5); // y position of the top-left corner of the tile map
-
-        this.map; // rference to tile map
-        this.groundLayer; // used to create background layer of tile map
-        this.levelLayer; // reference to level layer of tile map
     }
 
-    initGameUi ()
-    {
+    initGameUi() {
         // Create tutorial text
-        this.tutorialText = this.add.text(this.centreX, this.centreY, 'Arrow keys to move!\nPress Spacebar to Start', {
-            fontFamily: 'Arial Black', fontSize: 42, color: '#ffffff',
-            stroke: '#000000', strokeThickness: 8,
-            align: 'center'
-        })
+        this.tutorialText = this.add
+            .text(
+                this.centreX,
+                this.centreY,
+                "Arrow keys to move!\nPress Spacebar to Start",
+                {
+                    fontFamily: "Arial Black",
+                    fontSize: 42,
+                    color: "#ffffff",
+                    stroke: "#000000",
+                    strokeThickness: 8,
+                    align: "center",
+                }
+            )
             .setOrigin(0.5)
             .setDepth(100);
 
         // Create score text
-        this.scoreText = this.add.text(20, 20, 'Score: 0', {
-            fontFamily: 'Arial Black', fontSize: 28, color: '#ffffff',
-            stroke: '#000000', strokeThickness: 8,
-        })
+        this.scoreText = this.add
+            .text(20, 20, "Score: 0", {
+                fontFamily: "Arial Black",
+                fontSize: 28,
+                color: "#ffffff",
+                stroke: "#000000",
+                strokeThickness: 8,
+            })
             .setDepth(100);
 
         // Create game over text
-        this.gameOverText = this.add.text(this.scale.width * 0.5, this.scale.height * 0.5, 'Game Over', {
-            fontFamily: 'Arial Black', fontSize: 64, color: '#ffffff',
-            stroke: '#000000', strokeThickness: 8,
-            align: 'center'
-        })
+        this.gameOverText = this.add
+            .text(
+                this.scale.width * 0.5,
+                this.scale.height * 0.5,
+                "Game Over",
+                {
+                    fontFamily: "Arial Black",
+                    fontSize: 64,
+                    color: "#ffffff",
+                    stroke: "#000000",
+                    strokeThickness: 8,
+                    align: "center",
+                }
+            )
             .setOrigin(0.5)
             .setDepth(100)
             .setVisible(false);
     }
 
-    initAnimations ()
-    {
+    /**
+     * アニメーションの初期化
+     */
+    initAnimations() {
         const playerAnimations = ANIMATION.player;
-        for (const key in playerAnimations)
-        {
-            const animation = playerAnimations[ key ];
+        for (const key in playerAnimations) {
+            const animation = playerAnimations[key];
 
             this.anims.create({
                 key: animation.key,
-                frames: this.anims.generateFrameNumbers(animation.texture, animation.config),
+                frames: this.anims.generateFrameNumbers(
+                    animation.texture,
+                    animation.config
+                ),
                 frameRate: animation.frameRate,
-                repeat: animation.repeat
+                repeat: animation.repeat,
             });
-        };
+        }
 
         const enemyAnimations = ANIMATION.enemy;
-        for (const key in enemyAnimations)
-        {
-            const animation = enemyAnimations[ key ];
+        for (const key in enemyAnimations) {
+            const animation = enemyAnimations[key];
 
             this.anims.create({
                 key: animation.key,
-                frames: this.anims.generateFrameNumbers(animation.texture, animation.config),
+                frames: this.anims.generateFrameNumbers(
+                    animation.texture,
+                    animation.config
+                ),
                 frameRate: animation.frameRate,
-                repeat: animation.repeat
+                repeat: animation.repeat,
             });
-        };
+        }
     }
 
-    initGroups ()
-    {
+    initGroups() {
         this.enemyGroup = this.add.group();
         this.itemGroup = this.add.group();
     }
 
-    initPhysics ()
-    {
-        this.physics.add.overlap(this.player, this.enemyGroup, this.hitPlayer, null, this);
-        this.physics.add.overlap(this.player, this.itemGroup, this.collectItem, null, this);
+    initPhysics() {
+        this.physics.add.overlap(
+            this.player,
+            this.itemGroup,
+            this.collectItem,
+            null,
+            this
+        );
     }
 
-    initPlayer ()
-    {
+    /**
+     * プレイヤーの初期化
+     */
+    initPlayer() {
+        // プレイヤーの生成
         this.player = new Player(this, this.playerStart.x, this.playerStart.y);
     }
 
-    initInput ()
-    {
-        this.cursors = this.input.keyboard.createCursorKeys();
-
-        // check for spacebar press only once
-        this.cursors.space.once('down', (key, event) =>
-        {
-            this.startGame();
-        });
+    /**
+     * 入力の初期化
+     */
+    initInput() {
+        // スペースキーの監視を追加
+        this.inputManager.addKey(
+            KEY_NAME_MAP.SPACE,
+            Phaser.Input.Keyboard.KeyCodes.SPACE
+        );
     }
 
-    // create tile map data
-    initMap ()
-    {
-        const mapData = [];
+    /**
+     * マップの初期化
+     */
+    initMap() {
+        // マップデータ読み込み
+        const mapData = this.make.tilemap({ key: MAP_CONST_MAP.MAP_NAME_1 });
+        // タイルセットの読み込み
+        const tileset_normal_1 = mapData.addTilesetImage(
+            ASSETS.spritesheet.tiles_normal_1.key,
+            ASSETS.spritesheet.tiles_normal_1.key
+        );
 
-        for (let y = 0; y < this.mapHeight; y++)
-        {
-            const row = [];
+        // フィールドレイヤーを作成
+        const fieldLayer = mapData.createLayer(
+            MAP_CONST_MAP.LAYER_NAME_FIELD,
+            tileset_normal_1,
+            0,
+            0
+        );
+        this.uiCamera.ignore([fieldLayer]);
 
-            for (let x = 0; x < this.mapWidth; x++)
-            {
-                // randomly choose a tile id from this.tiles
-                // weightedPick favours items earlier in the array
-                const tileIndex = Phaser.Math.RND.weightedPick(this.tiles);
+        // (オプション) 衝突判定
+        fieldLayer.setCollisionByExclusion([-1]);
+        this.physics.add.collider(this.player, fieldLayer);
 
-                row.push(tileIndex);
-            }
+        // // アイテムレイヤーを作成 (JSONのレイヤー名 "Items")
+        // const itemsLayer = mapData.getObjectLayer('Items');
+        // // アイテムレイヤーからアイテムを生成
+        // itemsLayer.objects.forEach((item) => {
+        //     if (item.name === 'coin') {
+        //         // コインの生成
+        //         this.addCoin(item.x, item.y);
+        //     } else if (item.name === 'flag') {
+        //         // ゴールフラグの生成
+        //         const flag = this.physics.add.sprite(item.x, item.y, ASSETS.spritesheet.flag.key);
+        //         this.uiCamera.ignore([flag]);
+        //         flag.anims.play(ANIMATION.flag.key, true);
+        //         flag.body.setAllowGravity(false);
+        //         // プレイヤーとフラグの衝突判定
+        //         this.physics.add.overlap(this.player, flag, () => {
+        //             // フラグ消去
+        //             flag.destroy();
+        //             // ゲームクリア処理
+        //             this.GameClear();
+        //         }, null, this);
+        //     }
+        // });
 
-            mapData.push(row);
-        }
-        this.map = this.make.tilemap({ key: ASSETS.tilemapTiledJSON.map.key });
-        this.map.setCollision(this.tileIds.walls);
-        const tileset = this.map.addTilesetImage(ASSETS.spritesheet.tiles.key);
+        // 背景レイヤー
+        const bgLayer = mapData.createLayer(
+            MAP_CONST_MAP.LAYER_NAME_BACKGROUND,
+            tileset_normal_1,
+            0,
+            0
+        );
+        bgLayer.setDepth(-100);
+        this.uiCamera.ignore([bgLayer]);
 
-        // create background layer
-        this.groundLayer = this.map.createBlankLayer('ground', tileset, this.mapX, this.mapY);
-        this.groundLayer.fill(0, 0, 0, this.mapWidth, this.mapHeight);
-        // loop through map from bottom to top row
-        for (let y = 0; y < this.mapHeight; y++)
-        {
-            // loop through map from left to right column
-            for (let x = 0; x < this.mapWidth; x++)
-            {
-                const tile = this.groundLayer.getTileAt(x, y);
-                tile.index = Phaser.Math.RND.weightedPick(this.tiles);
-            }
-        }
+        // マップの幅と高さを取得
+        const mapWidth = mapData.widthInPixels;
+        const mapHeight = mapData.heightInPixels;
+        // ワールドの境界をマップのサイズに設定
+        this.physics.world.setBounds(0, 0, mapWidth, mapHeight);
+        this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
 
-        // create level layer to show game level elements
-        this.levelLayer = this.map.createLayer('level', tileset, this.mapX, this.mapY);
-        // loop through map from bottom to top row
-        for (let y = 0; y < this.mapHeight; y++)
-        {
-            // loop through map from left to right column
-            for (let x = 0; x < this.mapWidth; x++)
-            {
-                const tile = this.levelLayer.getTileAt(x, y);
-                if (!tile) continue
-
-                if (tile.index === this.tileIds.player)
-                {
-                    tile.index = -1;
-                    this.playerStart.x = x;
-                    this.playerStart.y = y;
-                }
-                else if (tile.index === this.tileIds.enemy)
-                {
-                    tile.index = -1;
-                    this.enemyStart.x = x;
-                    this.enemyStart.y = y;
-                }
-                else if (tile.index === this.tileIds.coin)
-                {
-                    tile.index = -1;
-                    this.addCoin(x, y);
-                }
-                else if (tile.index === this.tileIds.bomb)
-                {
-                    tile.index = -1;
-                    this.addBomb(x, y);
-                }
-            }
-        }
+        // プレイヤーの初期位置設定
+        this.player.setPosition(
+            MAP_CONST_MAP.TILE_SIZE * 2,
+            MAP_CONST_MAP.TILE_SIZE * 2
+        );
     }
 
-    startGame ()
-    {
+    /**
+     * ゲーム開始処理
+     */
+    startGame() {
         this.gameStarted = true;
         this.tutorialText.setVisible(false);
     }
 
-    addEnemy ()
-    {
+    addEnemy() {
         // spawn enemy every 3 seconds
         if (this.spawnCounterEnemy-- > 0) return;
         this.spawnCounterEnemy = this.spawnRateEnemy;
@@ -248,70 +316,49 @@ export class Game extends Phaser.Scene
         this.enemyGroup.add(enemy);
     }
 
-    addCoin (x, y)
-    {
+    addCoin(x, y) {
         this.itemGroup.add(new Coin(this, x, y));
     }
 
-    removeItem (item)
-    {
+    removeItem(item) {
         this.itemGroup.remove(item, true, true);
 
         // check if all items have been collected
-        if (this.itemGroup.getChildren().length === 0)
-        {
+        if (this.itemGroup.getChildren().length === 0) {
             this.GameOver();
         }
     }
 
-    addBomb (x, y)
-    {
+    addBomb(x, y) {
         this.itemGroup.add(new Bomb(this, x, y));
     }
 
-    destroyEnemies ()
-    {
+    destroyEnemies() {
         this.updateScore(100 * this.enemyGroup.getChildren().length);
         this.enemyGroup.clear(true, true);
     }
 
-    hitPlayer (player, obstacle)
-    {
+    hitPlayer(player, obstacle) {
         player.hit();
 
         this.GameOver();
     }
 
-    collectItem (player, item)
-    {
+    collectItem(player, item) {
         item.collect();
     }
 
-    updateScore (points)
-    {
+    updateScore(points) {
         this.score += points;
         this.scoreText.setText(`Score: ${this.score}`);
     }
 
-    getMapOffset ()
-    {
-        return {
-            x: this.mapX + this.halfTileSize,
-            y: this.mapY + this.halfTileSize,
-            width: this.mapWidth,
-            height: this.mapHeight,
-            tileSize: this.tileSize
-        }
-    }
-
-    getTileAt (x, y)
-    {
+    getTileAt(x, y) {
         const tile = this.levelLayer.getTileAtWorldXY(x, y, true);
         return tile ? this.tileIds.walls.indexOf(tile.index) : -1;
     }
 
-    GameOver ()
-    {
+    GameOver() {
         this.gameStarted = false;
         this.gameOverText.setVisible(true);
     }

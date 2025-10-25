@@ -19,6 +19,13 @@ export default {
                 frameHeight: 32
             }]
         },
+        tiles_normal_1: {
+            key: 'tiles_normal_1',
+            args: ['assets/block_tiles_32x32.png', {
+                frameWidth: 32,
+                frameHeight: 32
+            }]
+        },
         characters: {
             key: 'characters',
             args: ['assets/characters.png', {
@@ -31,6 +38,10 @@ export default {
         map: {
             key: 'map',
             args: ['assets/tilemap.json']
+        },
+        map_normal_1: {
+            key: 'tilemap_normal_1',
+            args: ['assets/tilemap_normal_1.json']
         },
     }
 };
